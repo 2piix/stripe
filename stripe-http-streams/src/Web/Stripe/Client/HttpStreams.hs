@@ -33,7 +33,7 @@ import           Network.Http.Client        (Connection,
                                              inputStreamBody, openConnectionSSL,
                                              receiveResponse, sendRequest,
                                              setAuthorizationBasic, encodedFormBody,
-                                             setContentType, setHeader, 
+                                             setContentType, setHeader,
                                              setTransferEncoding)
 import qualified Network.Http.Client        as C
 import           OpenSSL                    (withOpenSSL)
@@ -41,8 +41,8 @@ import qualified System.IO.Streams          as Streams
 import qualified System.IO.Streams.Attoparsec as Streams
 import           System.IO.Streams.Attoparsec (ParseException(..))
 import           Web.Stripe.Client          (APIVersion (..), Method(..), StripeConfig (..),
-                                             StripeError (..), defaultEndpoint, Endpoint (..),
-                                             StripeErrorType (..), StripeRequest (..),
+                                             StripeError (..), StripeErrorType (..), StripeRequest (..),
+                                             Endpoint (..), Protocol (..), defaultEndpoint,
                                              StripeReturn, getStripeKey,
                                              toBytestring, toText,
                                              paramsToByteString, attemptDecode, unknownCode,
@@ -76,12 +76,14 @@ stripeConn conn config request =
 -- | Open a connection to the stripe API server
 withConnection :: Endpoint -> (Connection -> IO (Either StripeError a))
                -> IO (Either StripeError a)
-withConnection (Endpoint endpoint) f =
+withConnection (Endpoint url protocol port) f =
   withOpenSSL $ do
     ctx <- baselineContextSSL
-    result <- try (openConnectionSSL ctx endpoint 443) :: IO (Either SomeException Connection)
+    result <- case protocol of
+      HTTPS -> try (openConnectionSSL ctx url (toEnum port)) :: IO (Either SomeException Connection)
+      HTTP  -> try (openConnectionSSL ctx url (toEnum port)) :: IO (Either SomeException Connection)
     case result of
-      Left msg -> return $ Left $ StripeError ConnectionFailure (toText msg) Nothing Nothing Nothing
+      Left msg -> return $ Left $ StripeError ConnectionFailure (toText msg) Nothing Nothing Nothing Nothing
       Right conn -> (f conn) `finally` (closeConnection conn)
 
 ------------------------------------------------------------------------------
@@ -140,7 +142,7 @@ callAPI conn fromJSON' StripeConfig {..} StripeRequest{..} = do
            then return unknownCode
            else do -- FIXME: should we check the content-type instead
                    -- assuming it is application/json? --DMJ: Stripe
-                   -- gaurantees it to be JSON 
+                   -- gaurantees it to be JSON
                    v <- try (Streams.parseFromStream json' inputStream)
                    let r =
                          case v of
