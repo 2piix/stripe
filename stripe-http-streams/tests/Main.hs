@@ -2,7 +2,7 @@ module Main where
 
 import           Control.Monad.Trans.Free       (FreeF(..), FreeT(..))
 import           Network.Http.Client            (Connection)
-import           Web.Stripe.Client              (StripeConfig(..), StripeError(..))
+import           Web.Stripe.Client              (StripeConfig(..), StripeError(..), defaultEndpoint)
 import           Web.Stripe.Client.HttpStreams  (withConnection, callAPI)
 import           Web.Stripe.Test.AllTests       (allTests)
 import           Web.Stripe.Test.Prelude        (Stripe, StripeRequestF(..))
@@ -14,7 +14,7 @@ runStripe :: StripeConfig
           -> Stripe a
           -> IO (Either StripeError a)
 runStripe config stripe =
-  withConnection $ \conn ->
+  withConnection defaultEndpoint $ \conn ->
     runStripe' conn config stripe
 
 runStripe' :: Connection
